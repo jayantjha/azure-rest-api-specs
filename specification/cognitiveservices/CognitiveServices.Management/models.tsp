@@ -5581,6 +5581,7 @@ model ComputeListResult {
    */
   @pageItems
   @visibility(Lifecycle.Read)
+  @identifiers(#["name"])
   value?: Compute[];
 }
 
