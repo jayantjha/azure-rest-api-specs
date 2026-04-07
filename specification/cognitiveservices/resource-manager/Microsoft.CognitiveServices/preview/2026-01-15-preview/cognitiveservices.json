@@ -2517,6 +2517,9 @@
         "x-ms-examples": {
           "GetCompute": {
             "$ref": "./examples/GetCompute.json"
+          },
+          "GetContainerInstanceCompute": {
+            "$ref": "./examples/GetContainerInstanceCompute.json"
           }
         }
       },
@@ -2600,6 +2603,9 @@
         "x-ms-examples": {
           "PutCompute": {
             "$ref": "./examples/PutCompute.json"
+          },
+          "PutContainerInstanceCompute": {
+            "$ref": "./examples/PutContainerInstanceCompute.json"
           }
         },
         "x-ms-long-running-operation-options": {
@@ -11446,6 +11452,55 @@
         "type"
       ]
     },
+    "ClusterComputeProperties": {
+      "type": "object",
+      "description": "Properties for a Cluster (AKS-backed) compute resource.",
+      "properties": {
+        "pools": {
+          "type": "array",
+          "description": "Pools attached to this compute cluster.",
+          "items": {
+            "$ref": "#/definitions/Pool"
+          }
+        },
+        "subnetArmId": {
+          "type": "string",
+          "description": "ARM ID of the subnet used for compute."
+        }
+      },
+      "required": [
+        "pools"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/definitions/ComputeProperties"
+        }
+      ],
+      "x-ms-discriminator-value": "Cluster"
+    },
+    "ClusterComputePropertiesUpdate": {
+      "type": "object",
+      "description": "Properties for a Cluster (AKS-backed) compute resource.",
+      "properties": {
+        "pools": {
+          "type": "array",
+          "description": "Pools attached to this compute cluster.",
+          "items": {
+            "$ref": "#/definitions/Pool"
+          }
+        },
+        "subnetArmId": {
+          "type": "string",
+          "description": "ARM ID of the subnet used for compute."
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ComputePropertiesUpdate"
+        }
+      ],
+      "x-ms-discriminator-value": "Cluster"
+    },
     "CommitmentCost": {
       "type": "object",
       "description": "Cognitive Services account commitment cost.",
@@ -11811,11 +11866,11 @@
     },
     "Compute": {
       "type": "object",
-      "description": "Cognitive Services compute cluster resource.",
+      "description": "Cognitive Services compute resource. Supports polymorphic compute types\n(Cluster, ContainerInstance) via the computeType discriminator in properties.",
       "properties": {
         "properties": {
           "$ref": "#/definitions/ComputeProperties",
-          "description": "Properties of Cognitive Services compute."
+          "description": "Polymorphic properties of the compute resource. Use computeType to select Cluster or ContainerInstance."
         },
         "etag": {
           "type": "string",
@@ -11955,18 +12010,11 @@
     },
     "ComputeProperties": {
       "type": "object",
-      "description": "Properties of a compute resource.",
+      "description": "Base properties for all compute resource types.\nThe computeType discriminator determines the concrete property shape.",
       "properties": {
-        "pools": {
-          "type": "array",
-          "description": "Pools attached to this compute cluster.",
-          "items": {
-            "$ref": "#/definitions/Pool"
-          }
-        },
-        "subnetArmId": {
-          "type": "string",
-          "description": "ARM ID of the subnet used for compute."
+        "computeType": {
+          "$ref": "#/definitions/ComputeType",
+          "description": "The type of compute resource."
         },
         "provisioningState": {
           "$ref": "#/definitions/ComputeProvisioningState",
@@ -11988,26 +12036,24 @@
           "readOnly": true
         }
       },
+      "discriminator": "computeType",
       "required": [
-        "pools"
+        "computeType"
       ]
     },
     "ComputePropertiesUpdate": {
       "type": "object",
-      "description": "Properties of a compute resource.",
+      "description": "Base properties for all compute resource types.\nThe computeType discriminator determines the concrete property shape.",
       "properties": {
-        "pools": {
-          "type": "array",
-          "description": "Pools attached to this compute cluster.",
-          "items": {
-            "$ref": "#/definitions/Pool"
-          }
-        },
-        "subnetArmId": {
-          "type": "string",
-          "description": "ARM ID of the subnet used for compute."
+        "computeType": {
+          "$ref": "#/definitions/ComputeType",
+          "description": "The type of compute resource."
         }
-      }
+      },
+      "discriminator": "computeType",
+      "required": [
+        "computeType"
+      ]
     },
     "ComputeProvisioningState": {
       "type": "string",
@@ -12064,13 +12110,37 @@
       },
       "readOnly": true
     },
+    "ComputeType": {
+      "type": "string",
+      "description": "The type of compute resource.",
+      "enum": [
+        "Cluster",
+        "ContainerInstance"
+      ],
+      "x-ms-enum": {
+        "name": "ComputeType",
+        "modelAsString": true,
+        "values": [
+          {
+            "name": "Cluster",
+            "value": "Cluster",
+            "description": "Cluster (AKS-backed) compute type."
+          },
+          {
+            "name": "ContainerInstance",
+            "value": "ContainerInstance",
+            "description": "Container Instance compute type."
+          }
+        ]
+      }
+    },
     "ComputeUpdate": {
       "type": "object",
-      "description": "Cognitive Services compute cluster resource.",
+      "description": "Cognitive Services compute resource. Supports polymorphic compute types\n(Cluster, ContainerInstance) via the computeType discriminator in properties.",
       "properties": {
         "properties": {
           "$ref": "#/definitions/ComputePropertiesUpdate",
-          "description": "Properties of Cognitive Services compute."
+          "description": "Polymorphic properties of the compute resource. Use computeType to select Cluster or ContainerInstance."
         },
         "tags": {
           "type": "object",
@@ -13115,6 +13185,88 @@
           "type": "string"
         }
       }
+    },
+    "ConnectivityEndpoints": {
+      "type": "object",
+      "description": "Network connectivity endpoints for a Container Instance compute.",
+      "properties": {
+        "publicIpAddress": {
+          "type": "string",
+          "description": "The public IP address of the compute instance.",
+          "readOnly": true
+        },
+        "sshPort": {
+          "type": "integer",
+          "format": "int32",
+          "description": "The SSH port for the compute instance.",
+          "readOnly": true
+        }
+      }
+    },
+    "ContainerInstanceComputeProperties": {
+      "type": "object",
+      "description": "Properties for a Container Instance compute resource.",
+      "properties": {
+        "targetClusterId": {
+          "type": "string",
+          "description": "ARM resource ID of the parent cluster that hosts this container instance."
+        },
+        "imageLink": {
+          "type": "string",
+          "description": "Container image URI (e.g., MCR or ACR image path) for the container instance."
+        },
+        "idleTimeBeforeShutdown": {
+          "type": "string",
+          "description": "ISO 8601 duration before the idle instance is automatically shut down (e.g., 'PT30M')."
+        },
+        "sshSettings": {
+          "$ref": "#/definitions/SshSettings",
+          "description": "SSH configuration for remote access to the container instance."
+        },
+        "connectivityEndpoints": {
+          "$ref": "#/definitions/ConnectivityEndpoints",
+          "description": "Network connectivity endpoints assigned to the container instance.",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "targetClusterId",
+        "imageLink"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/definitions/ComputeProperties"
+        }
+      ],
+      "x-ms-discriminator-value": "ContainerInstance"
+    },
+    "ContainerInstanceComputePropertiesUpdate": {
+      "type": "object",
+      "description": "Properties for a Container Instance compute resource.",
+      "properties": {
+        "targetClusterId": {
+          "type": "string",
+          "description": "ARM resource ID of the parent cluster that hosts this container instance."
+        },
+        "imageLink": {
+          "type": "string",
+          "description": "Container image URI (e.g., MCR or ACR image path) for the container instance."
+        },
+        "idleTimeBeforeShutdown": {
+          "type": "string",
+          "description": "ISO 8601 duration before the idle instance is automatically shut down (e.g., 'PT30M')."
+        },
+        "sshSettings": {
+          "$ref": "#/definitions/SshSettings",
+          "description": "SSH configuration for remote access to the container instance."
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ComputePropertiesUpdate"
+        }
+      ],
+      "x-ms-discriminator-value": "ContainerInstance"
     },
     "ContentLevel": {
       "type": "string",
@@ -17742,6 +17894,20 @@
             "value": "Enterprise"
           }
         ]
+      }
+    },
+    "SshSettings": {
+      "type": "object",
+      "description": "SSH configuration for a Container Instance compute.",
+      "properties": {
+        "sshPublicKey": {
+          "type": "string",
+          "description": "The SSH public key for authenticating to the compute instance."
+        },
+        "adminEnabled": {
+          "type": "boolean",
+          "description": "Whether SSH admin access is enabled."
+        }
       }
     },
     "ThrottlingRule": {

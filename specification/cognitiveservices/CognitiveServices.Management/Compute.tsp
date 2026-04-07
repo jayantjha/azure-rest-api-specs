@@ -15,7 +15,8 @@ using TypeSpec.Versioning;
 namespace Microsoft.CognitiveServices;
 
 /**
- * Cognitive Services compute cluster resource.
+ * Cognitive Services compute resource. Supports polymorphic compute types
+ * (Cluster, ContainerInstance) via the computeType discriminator in properties.
  */
 @added(Versions.v2026_01_15_preview)
 @parentResource(Account)
@@ -101,7 +102,7 @@ interface Computes {
 @@doc(Compute.name,
   "The name of the compute associated with the Cognitive Services Account."
 );
-@@doc(Compute.properties, "Properties of Cognitive Services compute.");
+@@doc(Compute.properties, "Polymorphic properties of the compute resource. Use computeType to select Cluster or ContainerInstance.");
 @@doc(Computes.createOrUpdate::parameters.resource, "The compute properties.");
 @@doc(Computes.update::parameters.properties,
   "The compute properties to update."

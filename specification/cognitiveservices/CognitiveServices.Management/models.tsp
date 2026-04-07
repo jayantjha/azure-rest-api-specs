@@ -5751,19 +5751,30 @@ model Pool {
 }
 
 /**
- * Properties of a compute resource.
+ * The type of compute resource.
  */
 @added(Versions.v2026_01_15_preview)
+union ComputeType {
+  string,
+
+  /** Cluster (AKS-backed) compute type. */
+  Cluster: "Cluster",
+
+  /** Container Instance compute type. */
+  ContainerInstance: "ContainerInstance",
+}
+
+/**
+ * Base properties for all compute resource types.
+ * The computeType discriminator determines the concrete property shape.
+ */
+@added(Versions.v2026_01_15_preview)
+@discriminator("computeType")
 model ComputeProperties {
   /**
-   * Pools attached to this compute cluster.
+   * The type of compute resource.
    */
-  pools: Pool[];
-
-  /**
-   * ARM ID of the subnet used for compute.
-   */
-  subnetArmId?: string;
+  computeType: ComputeType;
 
   /**
    * Provisioning state of the compute resource.
@@ -5782,6 +5793,98 @@ model ComputeProperties {
    */
   @visibility(Lifecycle.Read)
   creationTime?: utcDateTime;
+}
+
+/**
+ * Properties for a Cluster (AKS-backed) compute resource.
+ */
+@added(Versions.v2026_01_15_preview)
+model ClusterComputeProperties extends ComputeProperties {
+  /**
+   * The type of compute resource.
+   */
+  computeType: "Cluster";
+
+  /**
+   * Pools attached to this compute cluster.
+   */
+  pools: Pool[];
+
+  /**
+   * ARM ID of the subnet used for compute.
+   */
+  subnetArmId?: string;
+}
+
+/**
+ * Properties for a Container Instance compute resource.
+ */
+@added(Versions.v2026_01_15_preview)
+model ContainerInstanceComputeProperties extends ComputeProperties {
+  /**
+   * The type of compute resource.
+   */
+  computeType: "ContainerInstance";
+
+  /**
+   * ARM resource ID of the parent cluster that hosts this container instance.
+   */
+  targetClusterId: string;
+
+  /**
+   * Container image URI (e.g., MCR or ACR image path) for the container instance.
+   */
+  imageLink: string;
+
+  /**
+   * ISO 8601 duration before the idle instance is automatically shut down (e.g., 'PT30M').
+   */
+  idleTimeBeforeShutdown?: string;
+
+  /**
+   * SSH configuration for remote access to the container instance.
+   */
+  sshSettings?: SshSettings;
+
+  /**
+   * Network connectivity endpoints assigned to the container instance.
+   */
+  @visibility(Lifecycle.Read)
+  connectivityEndpoints?: ConnectivityEndpoints;
+}
+
+/**
+ * SSH configuration for a Container Instance compute.
+ */
+@added(Versions.v2026_01_15_preview)
+model SshSettings {
+  /**
+   * The SSH public key for authenticating to the compute instance.
+   */
+  sshPublicKey?: string;
+
+  /**
+   * Whether SSH admin access is enabled.
+   */
+  adminEnabled?: boolean;
+}
+
+/**
+ * Network connectivity endpoints for a Container Instance compute.
+ */
+@added(Versions.v2026_01_15_preview)
+model ConnectivityEndpoints {
+  /**
+   * The public IP address of the compute instance.
+   */
+  @visibility(Lifecycle.Read)
+  publicIpAddress?: string;
+
+  /**
+   * The SSH port for the compute instance.
+   */
+  @visibility(Lifecycle.Read)
+  sshPort?: int32;
 }
 
 /**
