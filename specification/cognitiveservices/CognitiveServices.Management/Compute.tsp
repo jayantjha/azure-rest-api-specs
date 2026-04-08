@@ -95,6 +95,30 @@ interface Computes {
    */
   @tag("Computes")
   list is ArmResourceListByParent<Compute, Response = ComputeListResult>;
+
+  /**
+   * Starts a stopped ContainerInstance compute resource.
+   * This is a long-running operation that returns 202 Accepted.
+   * Only applicable when computeType is ContainerInstance.
+   */
+  @tag("Computes")
+  start is ArmResourceActionNoResponseContentAsync<Compute, void>;
+
+  /**
+   * Stops a running ContainerInstance compute resource.
+   * This is a long-running operation that returns 202 Accepted.
+   * Only applicable when computeType is ContainerInstance.
+   */
+  @tag("Computes")
+  stop is ArmResourceActionNoResponseContentAsync<Compute, void>;
+
+  /**
+   * Restarts a running ContainerInstance compute resource.
+   * This is a long-running operation that returns 202 Accepted.
+   * Only applicable when computeType is ContainerInstance.
+   */
+  @tag("Computes")
+  restart is ArmResourceActionNoResponseContentAsync<Compute, void>;
 }
 
 @@maxLength(Compute.name, 63);

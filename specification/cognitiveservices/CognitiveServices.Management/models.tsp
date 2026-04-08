@@ -5708,6 +5708,18 @@ union ComputeProvisioningState {
 
   /** The resource is disabled. */
   Disabled: "Disabled",
+
+  /** The compute resource is starting. */
+  Starting: "Starting",
+
+  /** The compute resource is stopping. */
+  Stopping: "Stopping",
+
+  /** The compute resource is restarting. */
+  Restarting: "Restarting",
+
+  /** The compute resource is stopped. */
+  Stopped: "Stopped",
 }
 
 /**
