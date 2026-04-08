@@ -9,6 +9,7 @@
     "computeName": "myCompute",
     "properties": {
       "properties": {
+        "computeType": "Cluster",
         "pools": [
           {
             "name": "default",
@@ -27,6 +28,7 @@
     "200": {
       "body": {
         "properties": {
+          "computeType": "Cluster",
           "pools": [
             {
               "name": "default",

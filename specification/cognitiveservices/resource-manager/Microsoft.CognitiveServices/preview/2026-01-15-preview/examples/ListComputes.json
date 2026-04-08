@@ -16,6 +16,7 @@
             "name": "myCompute",
             "type": "Microsoft.CognitiveServices/accounts/computes",
             "properties": {
+              "computeType": "Cluster",
               "pools": [
                 {
                   "name": "default",
