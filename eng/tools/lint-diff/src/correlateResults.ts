@@ -1,8 +1,9 @@
-import { basename, join } from "path";
-import { readFile } from "fs/promises";
-import { relativizePath, pathExists } from "./util.js";
-import { AutorestRunResult, BeforeAfter, LintDiffViolation, Source } from "./types.js";
+import { Readme } from "@azure-tools/specs-shared/readme";
+import { basename, join, relative } from "path";
+import { isDeepStrictEqual } from "util";
+import { AutorestRunResult, BeforeAfter, LintDiffViolation, Source } from "./lintdiff-types.js";
 import { getDefaultTag } from "./markdown-utils.js";
+import { isFailure, isWarning, pathExists, relativizePath } from "./util.js";
 
 export async function correlateRuns(
   beforePath: string,
@@ -10,15 +11,20 @@ export async function correlateRuns(
   afterChecks: AutorestRunResult[],
 ): Promise<Map<string, BeforeAfter>> {
   const runCorrelations = new Map<string, BeforeAfter>();
+  console.log("\nCorrelating runs...");
   for (const results of afterChecks) {
-    const { readme, tag } = results;
-    const key = tag ? `${readme}#${tag}` : readme;
+    const { rootPath, readme, tag } = results;
+    const readmePathRelative = relative(rootPath, readme.path);
+
+    const key = tag ? `${readmePathRelative}#${tag}` : readmePathRelative;
     if (runCorrelations.has(key)) {
       throw new Error(`Duplicate key found correlating autorest runs: ${key}`);
     }
 
     // Look for candidates matching readme and tag
-    const beforeCandidates = beforeChecks.filter((r) => r.readme === readme && r.tag === tag);
+    const beforeCandidates = beforeChecks.filter((r) => {
+      return relative(beforePath, r.readme.path) === readmePathRelative && r.tag === tag;
+    });
     if (beforeCandidates.length === 1) {
       runCorrelations.set(key, {
         before: beforeCandidates[0],
@@ -30,15 +36,17 @@ export async function correlateRuns(
     }
 
     // Look for candidates with a matching default tag from the baseline
-    const beforeReadmePath = join(beforePath, readme);
+    const beforeReadmePath = join(beforePath, readmePathRelative);
     if (await pathExists(beforeReadmePath)) {
-      const readmeContent = await readFile(beforeReadmePath, { encoding: "utf-8" });
-      const defaultTag = getDefaultTag(readmeContent);
+      const beforeReadme = new Readme(beforeReadmePath);
+      const defaultTag = await getDefaultTag(beforeReadme);
       if (!defaultTag) {
-        throw new Error(`No default tag found for readme ${readme} in before state`);
+        throw new Error(`No default tag found for readme ${readme.path} in before state`);
       }
       const beforeDefaultTagCandidates = beforeChecks.filter(
-        (r) => r.readme === readme && r.tag === defaultTag,
+        (r) =>
+          relative(beforePath, r.readme.path) === readmePathRelative &&
+          (r.tag === defaultTag || r.tag === ""),
       );
 
       if (beforeDefaultTagCandidates.length === 1) {
@@ -54,7 +62,9 @@ export async function correlateRuns(
       }
 
       // Look for candidates matching just the readme file
-      const beforeReadmeCandidate = beforeChecks.filter((r) => r.readme === readme);
+      const beforeReadmeCandidate = beforeChecks.filter(
+        (r) => relative(beforePath, r.readme.path) === readmePathRelative,
+      );
       if (beforeReadmeCandidate.length === 1) {
         runCorrelations.set(key, {
           before: beforeReadmeCandidate[0],
@@ -62,7 +72,9 @@ export async function correlateRuns(
         });
         continue;
       } else if (beforeReadmeCandidate.length > 1) {
-        throw new Error(`Multiple before candidates found for key ${key} using readme ${readme}`);
+        throw new Error(
+          `Multiple before candidates found for key ${key} using readme ${readme.path}`,
+        );
       }
     }
 
@@ -83,7 +95,7 @@ export function getViolations(
   const newViolations: LintDiffViolation[] = [];
   const existingViolations: LintDiffViolation[] = [];
 
-  for (const [runKey, { before, after }] of runCorrelations.entries()) {
+  for (const [, { before, after }] of runCorrelations.entries()) {
     const beforeViolations = before
       ? getLintDiffViolations(before).filter(
           (v) => (isFailure(v.level) || isWarning(v.level)) && v.source?.length > 0,
@@ -91,17 +103,23 @@ export function getViolations(
       : [];
     const afterViolations = getLintDiffViolations(after).filter(
       (v) =>
-        (isFailure(v.level) || isWarning(v.level)) &&
-        v.source?.length > 0 &&
-        affectedSwaggers.has(relativizePath(v.source[0].document).slice(1)),
+        // Fatal errors are always new
+        v.level.toLowerCase() === "fatal" ||
+        ((isFailure(v.level) || isWarning(v.level)) &&
+          v.source?.length > 0 &&
+          affectedSwaggers.has(relativizePath(v.source[0].document).slice(1))),
     );
 
-    const [newitems, existingItems] = getNewItems(beforeViolations, afterViolations);
-    console.log(`Correlated Run: ${runKey}`);
-    console.log(`New violations: ${newitems.length}`);
-    console.log(`Existing violations: ${existingItems.length}`);
+    const [newItems, existingItems] = getNewItems(beforeViolations, afterViolations);
 
-    newViolations.push(...newitems);
+    const beforeReadmePath = before ? relative(before?.rootPath, before?.readme.path) : "";
+    const afterReadmePath = relative(after.rootPath, after.readme.path);
+
+    console.log("Correlation:");
+    console.log(`\tBefore: Readme: ${beforeReadmePath} Tag: ${before?.tag}`);
+    console.log(`\tAfter: Readme : ${afterReadmePath} Tag: ${after.tag}`);
+
+    newViolations.push(...newItems);
     existingViolations.push(...existingItems);
   }
 
@@ -135,23 +153,16 @@ export function getLintDiffViolations(runResult: AutorestRunResult): LintDiffVio
       continue;
     }
 
-    const result = JSON.parse(line.trim());
-    if (result.code == undefined) {
-      // TODO: verify that things would blow up if this isn't set to FATAL
+    const result = JSON.parse(line.trim()) as { code: string | undefined };
+    if (result.code === undefined) {
+      // Results without a code can be assumed to be fatal errors. Set the code
+      // to "FATAL"
       result.code = "FATAL";
     }
     violations.push(result as LintDiffViolation);
   }
 
   return violations;
-}
-
-export function isFailure(level: string) {
-  return ["error", "fatal"].includes(level.toLowerCase());
-}
-
-export function isWarning(level: string) {
-  return level.toLowerCase() === "warning";
 }
 
 // This logic is duplicated from momentOfTruthPostProcessing.ts:140
@@ -181,7 +192,7 @@ export function getNewItems(
         beforeViolation.source?.length &&
         afterViolation.source?.length &&
         isSameSources(beforeViolation.source, afterViolation.source) &&
-        arrayIsEqual(beforeViolation.details?.jsonpath, afterViolation.details?.jsonpath)
+        isDeepStrictEqual(beforeViolation.details?.jsonpath, afterViolation.details?.jsonpath)
       ) {
         errorIsNew = false;
         existingItems.push(afterViolation);
@@ -203,18 +214,6 @@ export function getNewItems(
 export function isSameSources(a: Source[], b: Source[]) {
   if (a?.length && b?.length) {
     return basename(a?.[0]?.document) === basename(b?.[0]?.document);
-  }
-  return true;
-}
-
-export function arrayIsEqual(a: any[], b: any[]) {
-  if (a.length !== b.length) {
-    return false;
-  }
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
-      return false;
-    }
   }
   return true;
 }

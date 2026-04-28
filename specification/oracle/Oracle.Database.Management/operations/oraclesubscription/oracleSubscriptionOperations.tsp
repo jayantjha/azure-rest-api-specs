@@ -1,9 +1,10 @@
-import "../../../models/oraclesubscription/oracleSubscription.tsp";
-
+import "@typespec/http";
+import "../../models/oraclesubscription/oracleSubscription.tsp";
 using Azure.ResourceManager;
 using Azure.ResourceManager.Foundations;
 using Autorest;
 using TypeSpec.Versioning;
+using Http;
 
 namespace Oracle.Database;
 

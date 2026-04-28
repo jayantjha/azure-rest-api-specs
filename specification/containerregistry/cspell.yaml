@@ -7,6 +7,7 @@
 import:
   - ../../cspell.yaml
 words:
+  - abac
   - acrapi
   - azurecr
   - bcwg
@@ -27,6 +28,7 @@ words:
   - wgxm
   - wwkz
   - ywhk
+  - azcontainerregistry
 overrides:
   - filename: >-
       **/specification/containerregistry/data-plane/Microsoft.ContainerRegistry/preview/2018-08-10/containerregistry.json

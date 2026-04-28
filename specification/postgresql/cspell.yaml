@@ -7,6 +7,7 @@
 import:
   - ../../cspell.yaml
 words:
+  - Apsara
   - byok
   - citus
   - rdbms
@@ -14,6 +15,7 @@ words:
   - tigger
   - vcore
   - vcores
+  - Entras
 overrides:
   - filename: >-
       **/specification/postgresql/resource-manager/Microsoft.DBforPostgreSQL/preview/**/*json

@@ -7,7 +7,6 @@ import "./main.tsp";
 using Azure.ClientGenerator.Core;
 using Face;
 
-@TypeSpec.Versioning.useDependency(Azure.Core.Versions.v1_0_Preview_2)
 @TypeSpec.Versioning.useDependency(Face.Versions.v1_2)
 namespace ClientCustomizations;
 
@@ -94,7 +93,7 @@ interface FaceClient {
     name: "FaceAdministrationClient",
     service: Face,
   },
-  "csharp,python,javascript,go"
+  "!java"
 )
 namespace FaceAdministrationClient {
   /**

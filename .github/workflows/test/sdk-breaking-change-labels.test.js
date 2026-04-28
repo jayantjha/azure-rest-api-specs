@@ -1,27 +1,36 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { sdkLabels } from "../../shared/src/sdk-types.js";
+import { createMockSpecGenSdkArtifactInfo } from "../../shared/test/sdk-types.js";
 import { LabelAction } from "../src/label.js";
 import {
-  createMockCore,
-  createMockGithub,
-  createMockContext,
-} from "./mocks.js";
-import {
-  getLabelAndAction,
   getLabelAndActionImpl,
+  getLabelAndAction as getLabelAndActionSrc,
 } from "../src/sdk-breaking-change-labels.js";
-import { sdkLabels } from "../../src/sdk-types.js";
+import { createMockContext, createMockCore, createMockGithub } from "./mocks.js";
 
 // Mock dependencies
 vi.mock("../src/context.js", () => ({
   extractInputs: vi.fn(),
 }));
 
+/** @type {import('vitest').Mock<(url: string) => Promise<Partial<Response>>>} */
+const mockFetch = vi.fn();
+
 // Mock global fetch
-global.fetch = vi.fn();
+global.fetch = /** @type {import('vitest').MockedFunction<typeof fetch>} */ (mockFetch);
 
 const mockGithub = createMockGithub();
 const mockContext = createMockContext();
 const mockCore = createMockCore();
+
+/**
+ * @param {Partial<import("@actions/github-script").AsyncFunctionArguments>} asyncFunctionArgs
+ */
+function getLabelAndAction(asyncFunctionArgs) {
+  return getLabelAndActionSrc(
+    /** @type {import("@actions/github-script").AsyncFunctionArguments} */ (asyncFunctionArgs),
+  );
+}
 
 describe("sdk-breaking-change-labels", () => {
   beforeEach(() => {
@@ -33,14 +42,13 @@ describe("sdk-breaking-change-labels", () => {
     it("should extract inputs and call getLabelAndActionImpl", async () => {
       // Mock extracted inputs
       const mockInputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
       // Setup mock implementation for extractInputs
       const { extractInputs } = await import("../src/context.js");
-      extractInputs.mockResolvedValue(mockInputs);
+      /** @type {import("vitest").Mock} */ (extractInputs).mockResolvedValue(mockInputs);
 
       // Mock fetch responses
       // First fetch - artifact metadata
@@ -59,27 +67,22 @@ describe("sdk-breaking-change-labels", () => {
       const mockContentResponse = {
         ok: true,
         text: vi.fn().mockResolvedValue(
-          JSON.stringify({
-            labelAction: true,
-            language,
-          }),
+          JSON.stringify(
+            createMockSpecGenSdkArtifactInfo({
+              labelAction: true,
+              language,
+              prNumber: "123",
+            }),
+          ),
         ),
       };
 
-      // Mock PR search results
-      mockGithub.rest.search.issuesAndPullRequests.mockResolvedValue({
-        data: {
-          total_count: 1,
-          items: [{ number: 123, html_url: "https://github.com/pr/123" }],
-        },
-      });
-
       // Setup fetch to return different responses for each call
-      global.fetch.mockImplementation((url) => {
+      mockFetch.mockImplementation((url) => {
         if (url.includes("artifacts?artifactName=")) {
-          return mockArtifactResponse;
+          return Promise.resolve(mockArtifactResponse);
         } else {
-          return mockContentResponse;
+          return Promise.resolve(mockContentResponse);
         }
       });
 
@@ -92,29 +95,22 @@ describe("sdk-breaking-change-labels", () => {
 
       // Verify result
       expect(result).toEqual({
+        headSha: "abc123",
         labelName: sdkLabels[language].breakingChange,
         labelAction: LabelAction.Add,
         issueNumber: 123,
       });
-
-      // Verify mocks were called correctly
-      expect(mockGithub.rest.search.issuesAndPullRequests).toHaveBeenCalledWith(
-        {
-          q: `sha:abc123 type:pr state:open`,
-        },
-      );
     });
     it("should correctly set labelAction to Remove", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
       // Setup mock for extractInputs
       const { extractInputs } = await import("../src/context.js");
-      extractInputs.mockResolvedValue(inputs);
+      /** @type {import("vitest").Mock} */ (extractInputs)(inputs);
 
       // Mock artifact responses with 'remove' action
       const mockArtifactResponse = {
@@ -129,29 +125,22 @@ describe("sdk-breaking-change-labels", () => {
       const language = "azure-sdk-for-js";
       const mockContentResponse = {
         ok: true,
-        text: vi.fn().mockResolvedValue(
-          JSON.stringify({
-            labelAction: false,
-            language,
-          }),
-        ),
+        text: vi
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify(
+              createMockSpecGenSdkArtifactInfo({ labelAction: false, language, prNumber: "123" }),
+            ),
+          ),
       };
 
       // Setup fetch to return different responses for each call
-      global.fetch.mockImplementation((url) => {
+      mockFetch.mockImplementation((url) => {
         if (url.includes("artifacts?artifactName=")) {
-          return mockArtifactResponse;
+          return Promise.resolve(mockArtifactResponse);
         } else {
-          return mockContentResponse;
+          return Promise.resolve(mockContentResponse);
         }
-      });
-
-      // Mock PR search
-      mockGithub.rest.search.issuesAndPullRequests.mockResolvedValue({
-        data: {
-          total_count: 1,
-          items: [{ number: 123, html_url: "https://github.com/pr/123" }],
-        },
       });
 
       // Call function
@@ -163,22 +152,81 @@ describe("sdk-breaking-change-labels", () => {
 
       // Verify result has Remove action
       expect(result).toEqual({
+        headSha: "abc123",
         labelName: sdkLabels[language].breakingChange,
         labelAction: LabelAction.Remove,
+        issueNumber: 123,
+      });
+    });
+    it("should correctly set labelAction to none when label name is empty", async () => {
+      // Setup inputs
+      const inputs = {
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
+        head_sha: "abc123",
+      };
+
+      // Setup mock for extractInputs
+      const { extractInputs } = await import("../src/context.js");
+      /** @type {import("vitest").Mock} */ (extractInputs)(inputs);
+
+      // Mock artifact responses with 'remove' action
+      const mockArtifactResponse = {
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          resource: {
+            downloadUrl: "https://dev.azure.com/download?format=zip",
+          },
+        }),
+      };
+
+      const language = "azure-sdk-for-java";
+      const mockContentResponse = {
+        ok: true,
+        text: vi.fn().mockResolvedValue(
+          JSON.stringify(
+            createMockSpecGenSdkArtifactInfo({
+              labelAction: false,
+              language,
+              prNumber: "123",
+            }),
+          ),
+        ),
+      };
+
+      // Setup fetch to return different responses for each call
+      mockFetch.mockImplementation((url) => {
+        if (url.includes("artifacts?artifactName=")) {
+          return Promise.resolve(mockArtifactResponse);
+        } else {
+          return Promise.resolve(mockContentResponse);
+        }
+      });
+
+      // Call function
+      const result = await getLabelAndAction({
+        github: mockGithub,
+        context: mockContext,
+        core: mockCore,
+      });
+
+      // Verify result has none action
+      expect(result).toEqual({
+        headSha: "abc123",
+        labelName: sdkLabels[language].breakingChange,
+        labelAction: LabelAction.None,
         issueNumber: 123,
       });
     });
     it("should throw error with invalid inputs", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "",
         head_sha: "abc123",
       };
 
       // Setup mock for extractInputs
       const { extractInputs } = await import("../src/context.js");
-      extractInputs.mockResolvedValue(inputs);
+      /** @type {import("vitest").Mock} */ (extractInputs).mockResolvedValue(inputs);
 
       // Call function and expect it to throw
       await expect(
@@ -195,33 +243,21 @@ describe("sdk-breaking-change-labels", () => {
     it("should handle API failure", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
       // Mock fetch failure
-      global.fetch.mockResolvedValue({
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
         statusText: "Server Error",
         text: vi.fn().mockResolvedValue("Artifact not found"),
       });
 
-      // Mock PR search success
-      mockGithub.rest.search.issuesAndPullRequests.mockResolvedValue({
-        data: {
-          total_count: 1,
-          items: [{ number: 123, html_url: "https://github.com/pr/123" }],
-        },
-      });
-
       // Call function
       const result = await getLabelAndActionImpl({
-        ado_build_id: inputs.ado_build_id,
-        ado_project_url: inputs.ado_project_url,
-        head_sha: inputs.head_sha,
-        github: mockGithub,
+        details_url: inputs.details_url,
         core: mockCore,
       });
 
@@ -229,6 +265,7 @@ describe("sdk-breaking-change-labels", () => {
       expect(result).toEqual({
         labelName: "",
         labelAction: LabelAction.None,
+        headSha: "",
         issueNumber: NaN,
       });
 
@@ -241,33 +278,55 @@ describe("sdk-breaking-change-labels", () => {
     it("should complete without op when artifact does not exist", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
-      // Mock fetch failure
-      global.fetch.mockResolvedValue({
-        ok: false,
-        status: 404,
-        statusText: "Not Found",
-        text: vi.fn().mockResolvedValue("Artifact not found"),
-      });
-
-      // Mock PR search success
-      mockGithub.rest.search.issuesAndPullRequests.mockResolvedValue({
-        data: {
-          total_count: 1,
-          items: [{ number: 123, html_url: "https://github.com/pr/123" }],
-        },
+      // Mock fetch to handle the artifact URL with 404 error and fallback behavior
+      mockFetch.mockImplementation((url) => {
+        if (url.includes("artifacts?artifactName=spec-gen-sdk-artifact")) {
+          // Initial fetch for the specific artifact returns 404
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            statusText: "Not Found",
+            text: vi.fn().mockResolvedValue("Artifact not found"),
+          });
+        } else if (url.includes("artifacts?api-version=7.0") && !url.includes("artifactName=")) {
+          // List artifacts API call (used by fetchFailedArtifact)
+          return Promise.resolve({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+              value: [
+                {
+                  name: "spec-gen-sdk-artifact-failed",
+                  id: "12345",
+                  resource: {
+                    downloadUrl: "https://dev.azure.com/download-failed?format=zip",
+                  },
+                },
+              ],
+            }),
+          });
+        } else if (url.includes("artifactName=spec-gen-sdk-artifact-failed")) {
+          // Fetch for the failed artifact version returns 404 too
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            statusText: "Not Found",
+            text: vi.fn().mockResolvedValue("Failed artifact not found either"),
+          });
+        }
+        // Default response for other URLs
+        return Promise.resolve({
+          ok: true,
+          text: vi.fn().mockResolvedValue("{}"),
+        });
       });
 
       // Call function
       const result = await getLabelAndActionImpl({
-        ado_build_id: inputs.ado_build_id,
-        ado_project_url: inputs.ado_project_url,
-        head_sha: inputs.head_sha,
-        github: mockGithub,
+        details_url: inputs.details_url,
         core: mockCore,
       });
 
@@ -275,6 +334,7 @@ describe("sdk-breaking-change-labels", () => {
       expect(result).toEqual({
         labelName: "",
         labelAction: LabelAction.None,
+        headSha: "",
         issueNumber: NaN,
       });
     });
@@ -282,8 +342,7 @@ describe("sdk-breaking-change-labels", () => {
     it("should throw error if resource is empty from the artifact api response", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
@@ -294,19 +353,12 @@ describe("sdk-breaking-change-labels", () => {
       };
 
       // Setup fetch to return different responses for each call
-      global.fetch.mockImplementation((url) => {
-        if (url.includes("artifacts?artifactName=")) {
-          return mockArtifactResponse;
-        }
-      });
+      mockFetch.mockResolvedValue(mockArtifactResponse);
 
       // Call function and expect it to throw
       await expect(
         getLabelAndActionImpl({
-          ado_build_id: inputs.ado_build_id,
-          ado_project_url: inputs.ado_project_url,
-          head_sha: inputs.head_sha,
-          github: mockGithub,
+          details_url: inputs.details_url,
           core: mockCore,
         }),
       ).rejects.toThrow();
@@ -315,8 +367,7 @@ describe("sdk-breaking-change-labels", () => {
     it("should throw error if missing download url from the artifact api response", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
@@ -329,19 +380,12 @@ describe("sdk-breaking-change-labels", () => {
       };
 
       // Setup fetch to return different responses for each call
-      global.fetch.mockImplementation((url) => {
-        if (url.includes("artifacts?artifactName=")) {
-          return mockArtifactResponse;
-        }
-      });
+      mockFetch.mockResolvedValue(mockArtifactResponse);
 
       // Call function and expect it to throw
       await expect(
         getLabelAndActionImpl({
-          ado_build_id: inputs.ado_build_id,
-          ado_project_url: inputs.ado_project_url,
-          head_sha: inputs.head_sha,
-          github: mockGithub,
+          details_url: inputs.details_url,
           core: mockCore,
         }),
       ).rejects.toThrow();
@@ -350,8 +394,7 @@ describe("sdk-breaking-change-labels", () => {
     it("should throw error when fail to fetch artifact content", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
@@ -376,21 +419,18 @@ describe("sdk-breaking-change-labels", () => {
       };
 
       // Setup fetch to return different responses for each call
-      global.fetch.mockImplementation((url) => {
+      mockFetch.mockImplementation((url) => {
         if (url.includes("artifacts?artifactName=")) {
-          return mockArtifactResponse;
+          return Promise.resolve(mockArtifactResponse);
         } else {
-          return mockContentResponse;
+          return Promise.resolve(mockContentResponse);
         }
       });
 
       // Call function and expect it to throw
       await expect(
         getLabelAndActionImpl({
-          ado_build_id: inputs.ado_build_id,
-          ado_project_url: inputs.ado_project_url,
-          head_sha: inputs.head_sha,
-          github: mockGithub,
+          details_url: inputs.details_url,
           core: mockCore,
         }),
       ).rejects.toThrow();
@@ -399,34 +439,25 @@ describe("sdk-breaking-change-labels", () => {
     it("should handle exception during processing", async () => {
       // Setup inputs
       const inputs = {
-        ado_build_id: "12345",
-        ado_project_url: "https://dev.azure.com/project",
+        details_url: "https://dev.azure.com/project/_build/results?buildId=12345",
         head_sha: "abc123",
       };
 
       // Mock fetch to throw an error
-      global.fetch.mockImplementation(() => {
+      mockFetch.mockImplementation(() => {
         throw new Error("Network error");
       });
 
-      // Mock PR search success
-      mockGithub.rest.search.issuesAndPullRequests.mockResolvedValue({
-        data: {
-          total_count: 1,
-          items: [{ number: 123, html_url: "https://github.com/pr/123" }],
-        },
+      // Start the async operation that will retry
+      const promise = getLabelAndActionImpl({
+        details_url: inputs.details_url,
+        core: mockCore,
+        // Change default retry delay from 1000ms to 1ms to reduce test time
+        retryOptions: { initialDelayMs: 1 },
       });
 
-      // Call function and expect it to throw
-      await expect(
-        getLabelAndActionImpl({
-          ado_build_id: inputs.ado_build_id,
-          ado_project_url: inputs.ado_project_url,
-          head_sha: inputs.head_sha,
-          github: mockGithub,
-          core: mockCore,
-        }),
-      ).rejects.toThrow();
-    });
+      // Now expect the promise to reject
+      await expect(promise).rejects.toThrow("Network error");
+    }, 10000);
   });
 });

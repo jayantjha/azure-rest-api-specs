@@ -1,7 +1,9 @@
 import "./main.tsp";
+import "@typespec/versioning";
 import "@azure-tools/typespec-client-generator-core";
 
 using Azure.ClientGenerator.Core;
+using TypeSpec.Versioning;
 using Microsoft.DeviceRegistry;
 
 // Java Client configuration
@@ -16,7 +18,7 @@ using Microsoft.DeviceRegistry;
 );
 
 // Python Client configuration
-@@clientName(Microsoft.DeviceRegistry, "DeviceRegistryMgmt", "python");
+@@clientName(Microsoft.DeviceRegistry, "DeviceRegistryMgmtClient", "python");
 
 // CSharp Client configuration
 @@scope(OperationStatus.get, "!csharp");
@@ -75,7 +77,6 @@ using Microsoft.DeviceRegistry;
   "csharp"
 );
 @@clientName(X509Credentials, "DeviceRegistryX509Credentials", "csharp");
-
 @@alternateType(SchemaRegistryProperties.storageAccountContainerUrl,
   url,
   "csharp"
@@ -89,9 +90,144 @@ using Microsoft.DeviceRegistry;
   url,
   "csharp"
 );
+@@clientName(Namespace, "DeviceRegistryNamespace", "csharp");
+@@clientName(NamespaceProperties,
+  "DeviceRegistryNamespaceProperties",
+  "csharp"
+);
+@@clientName(NamespaceAsset, "DeviceRegistryNamespaceAsset", "csharp");
+@@clientName(NamespaceAssetProperties,
+  "DeviceRegistryNamespaceAssetProperties",
+  "csharp"
+);
+@@clientName(NamespaceDevice, "DeviceRegistryNamespaceDevice", "csharp");
+@@clientName(NamespaceDeviceProperties,
+  "DeviceRegistryNamespaceDeviceProperties",
+  "csharp"
+);
+@@clientName(NamespaceDiscoveredAsset,
+  "DeviceRegistryNamespaceDiscoveredAsset",
+  "csharp"
+);
+@@clientName(NamespaceDiscoveredAssetProperties,
+  "DeviceRegistryNamespaceDiscoveredAssetProperties",
+  "csharp"
+);
+@@clientName(NamespaceDiscoveredDevice,
+  "DeviceRegistryNamespaceDiscoveredDevice",
+  "csharp"
+);
+@@clientName(NamespaceDiscoveredDeviceProperties,
+  "DeviceRegistryNamespaceDiscoveredDeviceProperties",
+  "csharp"
+);
+@@clientName(ErrorDetails, "DeviceRegistryErrorDetails", "csharp");
+@@clientName(NamespaceAssetStatus,
+  "DeviceRegistryNamespaceAssetStatus",
+  "csharp"
+);
+@@clientName(NamespaceAssetStatusDataset,
+  "DeviceRegistryNamespaceAssetStatusDataset",
+  "csharp"
+);
+@@clientName(NamespaceAssetStatusEvent,
+  "DeviceRegistryNamespaceAssetStatusEvent",
+  "csharp"
+);
+@@clientName(NamespaceAssetStatusEventGroup,
+  "DeviceRegistryNamespaceAssetStatusEventGroup",
+  "csharp"
+);
+@@clientName(NamespaceAssetStatusManagementAction,
+  "DeviceRegistryNamespaceAssetStatusManagementAction",
+  "csharp"
+);
+@@clientName(NamespaceAssetStatusManagementGroup,
+  "DeviceRegistryNamespaceAssetStatusManagementGroup",
+  "csharp"
+);
+@@clientName(NamespaceAssetStatusStream,
+  "DeviceRegistryNamespaceAssetStatusStream",
+  "csharp"
+);
+@@clientName(NamespaceMessageSchemaReference,
+  "DeviceRegistryNamespaceMessageSchemaReference",
+  "csharp"
+);
+@@clientName(StatusConfig, "DeviceRegistryStatusConfig", "csharp");
+@@clientName(StatusError, "DeviceRegistryStatusError", "csharp");
+@@clientName(NamespaceMigrateRequest, "NamespaceMigrateContent", "csharp");
+@@clientName(BillingContainer.etag, "ETag", "csharp");
+@@clientName(MqttDestinationQos, "MqttDestinationQo", "csharp");
 
 // JavaScript Client configuration
 @@clientName(Microsoft.DeviceRegistry,
   "DeviceRegistryManagementClient",
+  "javascript"
+);
+
+// JavaScript SDK: use update-specific models for PoliciesV1.update to exclude
+// server-side read-only and create-only fields (e.g. provisioningState, keyType, subject, etc.)
+
+// Standalone update models - no @removed so they do not reference deleted types
+
+@added(Versions.v2025_11_01_preview)
+@removed(Versions.v2026_04_01)
+@doc("The configuration to set up an ICA.")
+model CertificateAuthorityConfigurationUpdate {
+  @added(Versions.v2026_03_01_preview)
+  @doc("Configuration for Bring Your Own Root.")
+  bringYourOwnRoot?: BringYourOwnRootUpdate;
+}
+
+#suppress "@azure-tools/typespec-azure-resource-manager/no-empty-model" ""
+@added(Versions.v2026_03_01_preview)
+@removed(Versions.v2026_04_01)
+@doc("Configuration for Bring Your Own Root. When enabled, customers provide their own CA-signed certificates instead of using the service-managed CA.")
+model BringYourOwnRootUpdate {}
+
+@added(Versions.v2025_11_01_preview)
+@removed(Versions.v2026_04_01)
+@doc("The updatable leaf certificate configuration for Policy.")
+model LeafCertificateConfigurationUpdate {
+  @doc("The validity period in days.")
+  @minValue(7)
+  @maxValue(90)
+  validityPeriodInDays: int32;
+}
+
+@added(Versions.v2025_11_01_preview)
+@removed(Versions.v2026_04_01)
+@doc("The updatable certificate configuration for Policy.")
+model CertificateConfigurationUpdate {
+  @doc("The configuration to set up an ICA.")
+  certificateAuthorityConfiguration?: CertificateAuthorityConfigurationUpdate;
+
+  @doc("The leaf certificate configuration.")
+  leafCertificateConfiguration: LeafCertificateConfigurationUpdate;
+}
+
+@added(Versions.v2025_11_01_preview)
+@removed(Versions.v2026_04_01)
+@doc("Details of the Credential Policy.")
+model PolicyUpdateProperties {
+  @doc("The certificate configuration.")
+  certificate?: CertificateConfigurationUpdate;
+}
+
+@added(Versions.v2025_11_01_preview)
+@removed(Versions.v2026_04_01)
+@doc("A Credential Policy")
+model PolicyUpdate {
+  #suppress "@azure-tools/typespec-azure-resource-manager/arm-no-record" "FIXME: Update justification, follow aka.ms/tsp/conversion-fix for details"
+  @doc("Resource tags.")
+  tags?: Record<string>;
+
+  @doc("The resource-specific properties for this resource.")
+  properties?: PolicyUpdateProperties;
+}
+
+@@alternateType(Microsoft.DeviceRegistry.Policies.update::parameters.properties,
+  PolicyUpdate,
   "javascript"
 );

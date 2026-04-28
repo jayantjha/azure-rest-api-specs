@@ -1,15 +1,27 @@
 import "./main.tsp";
+import "./scheduledactionmodels.tsp";
 import "@azure-tools/typespec-client-generator-core";
+import "@typespec/versioning";
 
 using Azure.ClientGenerator.Core;
 using Microsoft.ComputeSchedule;
+using Azure.ResourceManager;
+using TypeSpec.Versioning;
 
-@@clientName(Microsoft.ComputeSchedule, "ComputeScheduleMgmt", "python");
+@@clientName(Microsoft.ComputeSchedule, "ComputeScheduleMgmtClient", "python");
 @@clientName(Microsoft.ComputeSchedule, "ComputeScheduleMgmtClient", "java");
 @@clientNamespace(Microsoft.ComputeSchedule,
   "com.azure.resourcemanager.computeschedule",
   "java"
 );
+
+@@clientName(CancelOccurrenceRequest, "OccurrenceCancelContent", "csharp");
+@@clientName(DelayRequest, "OccurrenceDelayContent", "csharp");
+@@clientName(Language, "NotificationLanguage", "csharp");
+@@clientName(Month, "ScheduledActionsScheduleMonth", "csharp");
+@@clientName(WeekDay, "ScheduledActionsScheduleWeekDay", "csharp");
+@@clientName(NotificationProperties, "NotificationSettings", "csharp");
+@@clientName(NotificationProperties.disabled, "IsDisabled", "csharp");
 
 @@clientName(ScheduledActions.virtualMachinesSubmitDeallocate,
   "SubmitVirtualMachineDeallocate",
@@ -48,8 +60,24 @@ using Microsoft.ComputeSchedule;
   "GetVirtualMachineOperationErrors",
   "csharp"
 );
+@@clientName(ScheduledActions.virtualMachinesExecuteCreate,
+  "ExecuteVirtualMachineCreateOperation",
+  "csharp"
+);
+@@clientName(ScheduledActions.virtualMachinesExecuteDelete,
+  "ExecuteVirtualMachineDeleteOperation",
+  "csharp"
+);
+@@clientName(ScheduledActions.virtualMachinesExecuteCreateFlex,
+  "ExecuteVirtualMachineCreateFlexOperation",
+  "csharp"
+);
 
 @@clientName(CancelOperationsResponse, "CancelOperationsResult", "csharp");
+@@clientName(CreateFlexResourceOperationResponse,
+  "CreateFlexResourceOperationResult",
+  "csharp"
+);
 @@clientName(DeadlineType, "ScheduledActionDeadlineType", "csharp");
 @@clientName(DeallocateResourceOperationResponse,
   "DeallocateResourceOperationResult",
@@ -84,7 +112,23 @@ using Microsoft.ComputeSchedule;
   "csharp"
 );
 @@clientName(StartResourceOperationResponse.type, "ResourceType", "csharp");
-
+@@clientName(CreateFlexResourceOperationResponse.type,
+  "ResourceType",
+  "csharp"
+);
+@@clientName(ExecuteDeleteRequest.correlationid,
+  "correlationId",
+  "csharp,javascript"
+);
+@@clientName(ExecuteDeleteRequest.forceDeletion, "IsForceDeletion", "csharp");
+@@clientName(ExecuteCreateRequest.correlationid,
+  "correlationId",
+  "csharp,javascript"
+);
+@@clientName(ExecuteCreateFlexRequest.correlationid,
+  "correlationId",
+  "csharp,javascript"
+);
 @@clientName(SubmitDeallocateRequest.correlationid,
   "correlationId",
   "csharp,javascript"
@@ -127,3 +171,183 @@ using Microsoft.ComputeSchedule;
   "errorDetailsTimestamp",
   "csharp,javascript"
 );
+@@clientName(Versions.`2024-10-01`,
+  "$DO_NOT_NORMALIZE$V2024-10-01",
+  "javascript"
+);
+@@clientName(DeleteResourceOperationResponse,
+  "DeleteResourceOperationResult",
+  "csharp"
+);
+@@clientName(CreateResourceOperationResponse,
+  "CreateResourceOperationResult",
+  "csharp"
+);
+@@clientName(ScheduledActionResource, "ScheduledActionResourceData", "csharp");
+@@clientName(OccurrenceResource, "OccurrenceResourceData", "csharp");
+@@clientName(OccurrenceExtensionResource,
+  "OccurrenceExtensionResourceData",
+  "csharp"
+);
+@@clientName(ResourceOperationResponse,
+  "ScheduledActionResourceOperationResult",
+  "csharp"
+);
+@@clientName(ResourceProvisioningState,
+  "OccurrenceResourceProvisioningState",
+  "csharp"
+);
+@@clientName(ProvisioningState,
+  "ScheduledActionResourceProvisioningState",
+  "csharp"
+);
+@@clientName(Occurrence, "ScheduledActionOccurrence", "csharp");
+@@clientName(OccurrenceProperties,
+  "ScheduledActionOccurrenceProperties",
+  "csharp"
+);
+@@clientName(OccurrenceState, "ScheduledActionOccurrenceState", "csharp");
+@@clientName(ResourceAttachRequest,
+  "ScheduledActionResourceAttachContent",
+  "csharp"
+);
+@@clientName(ResourceDetachRequest,
+  "ScheduledActionResourceDetachContent",
+  "csharp"
+);
+@@clientName(ResourcePatchRequest,
+  "ScheduledActionResourcePatchContent",
+  "csharp"
+);
+@@clientName(ResourceStatus, "ScheduledActionResourceStatus", "csharp");
+@@clientName(ResourceOperationStatus,
+  "ScheduledActionResourceOperationStatus",
+  "csharp"
+);
+@@clientName(ResourceType, "ScheduledActionResourceType", "csharp");
+
+@@clientName(AllocationStrategy, "ComputeScheduleAllocationStrategy", "csharp");
+@@clientName(DistributionStrategy,
+  "ComputeScheduleDistributionStrategy",
+  "csharp"
+);
+@@clientName(OsType, "ComputeScheduleOSType", "csharp");
+@@clientName(PriorityType, "ComputeSchedulePriorityType", "csharp");
+@@clientName(PriorityProfile, "ComputeSchedulePriorityProfile", "csharp");
+@@clientName(FlexProperties, "ComputeScheduleFlexProperties", "csharp");
+@@clientName(VmSizeProfile, "ComputeScheduleVmSizeProfile", "csharp");
+@@clientName(ZonePreference, "ComputeScheduleZonePreference", "csharp");
+@@clientName(ZoneAllocationPolicy,
+  "ComputeScheduleZoneAllocationPolicy",
+  "csharp"
+);
+
+@@clientName(UserInitiatedRedeploy.automaticallyApprove,
+  "AutomaticallyApproveRedeploy",
+  "csharp"
+);
+@@clientName(UserInitiatedReboot.automaticallyApprove,
+  "AutomaticallyApproveReboot",
+  "csharp"
+);
+@@clientName(AllInstancesDown.automaticallyApprove,
+  "AutomaticallyApproveAllInstancesDown",
+  "csharp"
+);
+
+@@clientName(DiskEncryptionSetParameters,
+  "ComputeScheduleDiskEncryptionSetConfig",
+  "csharp"
+);
+@@clientName(ManagedDiskParameters,
+  "ComputeScheduleManagedDiskConfig",
+  "csharp"
+);
+@@clientName(VirtualMachineReimageParameters,
+  "ComputeScheduleVirtualMachineReimageConfig",
+  "csharp"
+);
+
+@@clientName(OccurrenceExtension.listOccurrenceByVms,
+  "GetAssociatedOccurrences",
+  "csharp"
+);
+@@clientName(ScheduledActions.listResources, "GetAttachedResources", "csharp");
+@@clientName(Occurrences.listResources, "GetAttachedResources", "csharp");
+@@clientName(ScheduledActionExtension.listByVms,
+  "GetAssociatedScheduledActions",
+  "csharp"
+);
+
+@@clientName(ResourceOperationResponse,
+  "RecurringActionsResourceOperationResult",
+  "javascript,go,python,java"
+);
+@@clientName(Microsoft.ComputeSchedule.Versions.`2025-05-01`,
+  "V2025-05-01",
+  "javascript"
+);
+@@clientName(Microsoft.ComputeSchedule.ActionType, "ScheduledActionType");
+
+@@clientName(SubmitDeallocateRequest, "SubmitDeallocateContent");
+@@clientName(ExecuteHibernateRequest, "ExecuteHibernateContent");
+@@clientName(CancelOperationsRequest, "CancelOperationsContent");
+@@clientName(ExecuteCreateRequest, "ExecuteCreateContent");
+@@clientName(ExecuteCreateFlexRequest, "ExecuteCreateFlexContent");
+@@clientName(ExecuteDeallocateRequest, "ExecuteDeallocateContent");
+@@clientName(ExecuteDeleteRequest, "ExecuteDeleteContent");
+@@clientName(ExecuteStartRequest, "ExecuteStartContent");
+@@clientName(GetOperationErrorsRequest, "GetOperationErrorsContent");
+@@clientName(GetOperationStatusRequest, "GetOperationStatusContent");
+@@clientName(SubmitStartRequest, "SubmitStartContent");
+@@clientName(SubmitHibernateRequest, "SubmitHibernateContent");
+@@clientName(ScheduledActionsExtensionProperties,
+  "ScheduledActionsExtensionProperties"
+);
+
+@added(Microsoft.ComputeSchedule.Versions.`2025-04-15-preview`)
+@doc("Represents a scheduled action resource input for write operations.")
+model ScheduledActionResourceInput {
+  @doc("""
+    The ARM Id of the resource.
+    "subscriptions/{subId}/resourceGroups/{rgName}/providers/Microsoft.Compute/virtualMachines/{vmName}"
+    """)
+  resourceId: ValidScheduledActionResourceId;
+
+  @doc("The desired notification settings for the specified resource.")
+  @Azure.ResourceManager.identifiers(#["destination"])
+  notificationSettings?: Array<NotificationProperties>;
+}
+
+@added(Microsoft.ComputeSchedule.Versions.`2025-04-15-preview`)
+@doc("Request model to attach a list of scheduled action resources.")
+model ResourceAttachRequestInput {
+  @doc("List of resources to be attached/patched")
+  @identifiers(#["resourceId"])
+  resources: Array<ScheduledActionResourceInput>;
+}
+
+@added(Microsoft.ComputeSchedule.Versions.`2025-04-15-preview`)
+@doc("Request model perform a resource operation in a list of resources")
+model ResourcePatchRequestInput {
+  @doc("The list of resources we watch to patch")
+  @identifiers(#["resourceId"])
+  resources: Array<ScheduledActionResourceInput>;
+}
+
+@@alternateType(ScheduledActions.attachResources::parameters.body,
+  ResourceAttachRequestInput,
+  "javascript"
+);
+
+@@alternateType(ScheduledActions.patchResources::parameters.body,
+  ResourcePatchRequestInput,
+  "javascript"
+);
+
+// =====================================================================
+// Fix: NetworkApiVersion enum members with dashes cause Python SyntaxError
+// (ENUM_2020 - 11 - 01 instead of ENUM_2020_11_01)
+// =====================================================================
+@@clientName(NetworkApiVersion.`2020-11-01`, "V2020_11_01", "python");
+@@clientName(NetworkApiVersion.`2022-11-01`, "V2022_11_01", "python");

@@ -4,6 +4,7 @@
 
 $defaultTagRegex = "^tag:\s*(?<tag>.+)"
 $tagRegex = '^```\s*yaml\s*\$\(tag\)\s*==\s*''(?<tag>.+)'''
+$typeSpecMetadataFileName = "typespec-metadata.json"
 
 <#
 .DESCRIPTION
@@ -237,12 +238,32 @@ function Invoke-TypeSpecAPIViewParser {
     if ($LASTEXITCODE) {
       throw "Compilation error when running: 'npm exec --no -- tsp compile . --emit=@azure-tools/typespec-apiview --option @azure-tools/typespec-apiview.emitter-output-dir=$tempWorkingDirectoryPath/output/apiview.json'"
     }
+    
+    # Generate metadata file using @azure-tools/typespec-metadata emitter
+    if ($Type -eq "New") {
+      Write-Host "Generating TypeSpec metadata file using @azure-tools/typespec-metadata emitter..."
+      Write-Host "npm exec --no -- tsp compile . --emit=@azure-tools/typespec-metadata --option @azure-tools/typespec-metadata.outputFile=$tempWorkingDirectoryPath/output/$typeSpecMetadataFileName --option @azure-tools/typespec-metadata.format=json"
+      npm exec --no -- tsp compile . --emit=@azure-tools/typespec-metadata --option "@azure-tools/typespec-metadata.outputFile=$tempWorkingDirectoryPath/output/$typeSpecMetadataFileName" --option "@azure-tools/typespec-metadata.format=json"
+      if ($LASTEXITCODE) {
+        Write-Host "Warning: Failed to generate metadata file. Continuing without metadata."
+      }
+    }
+    
     Pop-Location
     
     $generatedAPIViewTokenFile = Get-ChildItem -File $tempWorkingDirectoryPath/output/apiview.json | Select-Object -First 1
     $apiViewTokensFilePath = [System.IO.Path]::Combine($TokenDirectory, "$resourceProvider.$Type.json")
     Write-Host "Moving generated APIView Token file to '$apiViewTokensFilePath'"
     Move-Item -Path $generatedAPIViewTokenFile.FullName -Destination $apiViewTokensFilePath -Force > $null
+    
+    if ($Type -eq "New") {
+      $metadataFile = Join-Path $tempWorkingDirectoryPath "output/$typeSpecMetadataFileName"
+      if (Test-Path $metadataFile) {
+        $metadataDestPath = [System.IO.Path]::Combine($TokenDirectory, $typeSpecMetadataFileName)
+        Write-Host "Moving generated metadata file to '$metadataDestPath'"
+        Move-Item -Path $metadataFile -Destination $metadataDestPath -Force > $null
+      }
+    }
   } catch {
     LogError " Failed to generate '$Type' APIView Tokens on '$ProjectPath' for '$resourceProvider', please check the detail log and make sure TypeSpec compiler version is the latest."
     LogError $_
@@ -310,6 +331,12 @@ function New-SwaggerAPIViewTokens {
     }
   }
 
+  if ($autoRestConfigInfo.Count -eq 0) {
+    LogWarning " No AutoRest configuration found for the changed swagger files in the current PR..."
+    Write-Host "##vso[task.complete result=SucceededWithIssues;]DONE"
+    exit 0
+  }
+
   LogGroupStart " Swagger APIView Tokens will be generated for the following configuration files..."
   $autoRestConfigInfo.GetEnumerator() | ForEach-Object {
     LogInfo " - $($_.Key)"
@@ -355,9 +382,15 @@ function New-SwaggerAPIViewTokens {
   }
 
   git checkout $currentBranch
+  $generatedSwaggerArtifacts = Get-ChildItem -Path $swaggerAPIViewArtifactsDirectory -Recurse
+  if ($generatedSwaggerArtifacts.Count -eq 0) {
+    LogWarning " No Swagger APIView Tokens generated..."
+    Write-Host "##vso[task.complete result=SucceededWithIssues;]DONE"
+    exit 0
+  }
 
   LogGroupStart " See all generated Swagger APIView Artifacts..."
-  Get-ChildItem -Path $swaggerAPIViewArtifactsDirectory -Recurse
+  $generatedSwaggerArtifacts
   LogGroupEnd
 }
 
@@ -452,12 +485,18 @@ function New-TypeSpecAPIViewTokens {
     LogGroupEnd 
     foreach ($typeSpecProject in $typeSpecProjects) {
       # Skip Baseline APIView Token for new projects
-      if (!(Test-Path -Path $typeSpecProject)) {
+      if (!(Test-Path -Path (Join-Path $typeSpecProject "tspconfig.yaml"))) {
         Write-Host "TypeSpec project $typeSpecProject is not found in pull request target branch. API review will not have a baseline revision."
       }
       else {
         $tokenDirectory = Join-Path $typeSpecAPIViewArtifactsDirectory $(Split-Path $typeSpecProject -Leaf)
-        Invoke-TypeSpecAPIViewParser -Type "Baseline" -ProjectPath $typeSpecProject -ResourceProvider $(Split-Path $typeSpecProject -Leaf) -TokenDirectory $tokenDirectory | Out-Null
+        try {
+          Invoke-TypeSpecAPIViewParser -Type "Baseline" -ProjectPath $typeSpecProject -ResourceProvider $(Split-Path $typeSpecProject -Leaf) -TokenDirectory $tokenDirectory | Out-Null
+        }
+        catch {
+          Write-Host "Failed to generate Baseline APIView Token for project $typeSpecProject. Error: $_"
+          Write-Host "Skipping Baseline API review generation for $typeSpecProject"
+        }
       }
     }
   }
@@ -542,6 +581,13 @@ function New-RestSpecsAPIViewReviews {
     if (-not $query['baselineCodeFile']) {
       LogWarning "'Baseline' APIView token file not found for resource provider '$($_.BaseName)'. Created APIView without baseline."
     }
+
+    # Check for TypeSpec metadata file generated by @azure-tools/typespec-metadata emitter
+    $metadataFilePath = Join-Path $_.FullName $typeSpecMetadataFileName
+    if (Test-Path $metadataFilePath) {
+      $query.Add('metadataFile', $typeSpecMetadataFileName)
+      LogInfo "Found TypeSpec metadata file for '$($_.BaseName)'"
+    }
   
     $query.Add('artifactName', $APIViewArtifactsName)
     $query.Add('buildId', $BuildId)
@@ -555,11 +601,19 @@ function New-RestSpecsAPIViewReviews {
     $uri = [System.UriBuilder]$APIViewUri
     $uri.Query = $query.ToString()
 
+    $correlationId = [System.Guid]::NewGuid().ToString()
+    $headers = @{
+      "x-correlation-id" = $correlationId
+    }
+
     LogInfo "Create APIView for resource provider '$($_.BaseName)'"
-    LogInfo "APIView Uri: $($uri.Uri)"
+    LogInfo "Request URI: $($uri.Uri.OriginalString)"
+    LogInfo "Correlation ID: $correlationId"
 
     try {
-      Invoke-WebRequest -Method 'GET' -Uri $uri.Uri -MaximumRetryCount 3
+      $Response = Invoke-WebRequest -Method 'GET' -Uri $uri.Uri -Headers $headers -MaximumRetryCount 3
+      $responseContent = $Response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
+      LogSuccess $responseContent
     }
     catch {
       LogError "Failed to create APIView for resource provider '$($_.BaseName)'. Error: $($_.Exception.Response)"

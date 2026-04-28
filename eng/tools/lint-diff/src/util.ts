@@ -31,7 +31,9 @@ export async function pathExists(path: string): Promise<boolean> {
 /* v8 ignore start */
 export async function getDependencyVersion(dependenciesDir: string): Promise<string> {
   const packageJsonPath = join(dependenciesDir, "package.json");
-  const packageJson = JSON.parse(await readFile(packageJsonPath, { encoding: "utf-8" }));
+  const packageJson = JSON.parse(await readFile(packageJsonPath, { encoding: "utf-8" })) as {
+    version?: string;
+  };
   const version = packageJson.version;
   if (!version) {
     throw new Error(`Version not found in package.json at ${packageJsonPath}`);
@@ -72,11 +74,18 @@ export async function getPathToDependency(dependency: string): Promise<string> {
  * @param from A directory name to treat as the root (e.g. /specification/)
  */
 export function relativizePath(path: string, from: string = `/specification/`): string {
-  console.log(`Relativizing path: ${path}`);
   const indexOfBy = path.lastIndexOf(from);
   if (indexOfBy === -1) {
     return path;
   }
 
   return path.substring(indexOfBy);
+}
+
+export function isFailure(level: string) {
+  return ["error", "fatal"].includes(level.toLowerCase());
+}
+
+export function isWarning(level: string) {
+  return level.toLowerCase() === "warning";
 }

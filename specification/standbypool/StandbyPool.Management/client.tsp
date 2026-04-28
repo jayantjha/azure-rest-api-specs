@@ -2,6 +2,7 @@ import "./main.tsp";
 import "@azure-tools/typespec-client-generator-core";
 
 using Azure.ClientGenerator.Core;
+using Azure.Core;
 using Azure.ResourceManager.CommonTypes;
 using Microsoft.StandbyPool;
 
@@ -67,10 +68,26 @@ using Microsoft.StandbyPool;
   "java"
 );
 @@clientName(ContainerGroupInstanceCountSummary.instanceCountsByState,
-  "instanceCountsByStateUpdated",
+  "StandbyContainerGroupInstanceCountsByState",
   "csharp"
 );
 @@clientName(VirtualMachineInstanceCountSummary.instanceCountsByState,
-  "instanceCountsByStateUpdated",
+  "StandbyVirtualMachineInstanceCountsByState",
+  "csharp"
+);
+@@clientName(PoolStatus, "StandbyPoolStatus", "csharp");
+@@clientName(HealthStateCode, "StandbyPoolHealthStateCode", "csharp");
+
+// we add this model in this namespace in order to replace some models with this model via alternateType decorator
+namespace Azure.ResourceManager.Models {
+  /** represents a reference to an existing resource by its id */
+  model WritableSubResource {
+    /** the id */
+    id?: armResourceIdentifier;
+  }
+}
+
+@@alternateType(ContainerGroupProperties.subnetIds,
+  Azure.ResourceManager.Models.WritableSubResource[],
   "csharp"
 );

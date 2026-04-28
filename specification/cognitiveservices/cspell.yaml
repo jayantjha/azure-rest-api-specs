@@ -3,6 +3,7 @@ import:
 words:
   - ADLS
   - adto
+  - agentic
   - alon
   - aoai
   - aoairesource
@@ -10,6 +11,16 @@ words:
   - armn
   - asssignment
   - asturian
+  - azspeechtranscription
+  - azspeechbatchtranscription
+  - azailanguageconversations
+  - azailanguageconversationsauthoring
+  - azailanguagedocuments
+  - azailanguagetextanalytics
+  - azailanguagetextanalyticsauthoring
+  - azailanguagequestionanswering
+  - azailanguagequestionansweringauthoring
+  - azureml
   - azureopenai
   - bangla
   - bbqwy
@@ -25,6 +36,7 @@ words:
   - bingvisualsearch
   - bingwebsearch
   - brcpf
+  - byval
   - centraluseuap
   - chatcmpl
   - contosodataset
@@ -58,6 +70,7 @@ words:
   - Hdfs
   - hebr
   - hierarchicals
+  - hitl
   - hsqc
   - idrg
   - importances
@@ -112,6 +125,7 @@ words:
   - qnamaker
   - qnamakerruntime
   - qnas
+  - raitopics
   - regon
   - reognizer
   - rerank
@@ -150,6 +164,21 @@ words:
   - Xero
   - yucatec
   - zhuang
+  - tfidf
+  - ngram
+  - ehthumbs
+  - stostools
+  - fseventsd
+  - icns
+  - apdisk
+  - ntvs
+  - njsproj
+  - vspx
+  - njsperf
+  - opensdf
+  - vitest
+  - tfstate
+  - commited
 overrides:
   - filename: "**/specification/cognitiveservices/data-plane/EntitySearch/stable/v1\
       .0/EntitySearch.json"
@@ -194,6 +223,8 @@ overrides:
       v3.0/TranslatorText.json"
     words:
       - bicho
+      - español
+      - français
       - jpan
       - konnichiha
       - mosca
@@ -247,11 +278,30 @@ overrides:
     words:
       - rerank
       - includable
+      - uhhm
   - filename: "**/specification/cognitiveservices/data-plane/AzureOpenAI/inference/\
       preview/**/*.yaml"
     words:
       - includable
+      - uhhm
   - filename: "**/specification/cognitiveservices/data-plane/AzureOpenAI/authoring/\
       preview/**/*.json"
     words:
       - wandb
+      - evals
+      - Evals
+      - ilike
+      - gleu
+      - reate
+  - filename: "**/specification/cognitiveservices/data-plane/AzureOpenAI/authoring/\
+      preview/**/*.yaml"
+    words:
+      - wandb
+      - evals
+      - Evals
+      - ilike
+      - gleu
+      - reate
+  - filename: '**/specification/cognitiveservices/resource-manager/Microsoft.CognitiveServices/preview/2016-02-01-preview/cognitiveservices.json'
+    words:
+      - rpns

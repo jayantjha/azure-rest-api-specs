@@ -111,6 +111,7 @@ warnings.txt
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+!.vscode/mcp.json
 
 # API Test outputs
 .apitest
@@ -127,7 +128,7 @@ warnings.txt
 # Eng Tools
 eng/tools/**/dist
 !eng/tools/**/cmd/*.js
-!eng/tools/**/eslint.config.js
+!eng/tools/**/*.config.js
 
 # TypeScript cache
 *.tsbuildinfo
@@ -136,6 +137,7 @@ eng/tools/**/dist
 **/package-lock.json
 !/package-lock.json
 !/.github/package-lock.json
+!/.github/shared/package-lock.json
 
 # No Armstrong outputs should be commited except the tf files.
 **/terraform/**/*.json

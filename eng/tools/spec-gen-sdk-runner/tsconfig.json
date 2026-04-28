@@ -2,8 +2,8 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "module": "ESNext",
-    "target": "ESNext",
-    "moduleResolution": "node",
-  }
+    "rootDir": ".",
+    "allowJs": true,
+  },
+  "include": ["*.ts", "src/**/*.ts", "test/**/*.ts"],
 }

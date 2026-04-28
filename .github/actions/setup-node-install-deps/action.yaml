@@ -3,22 +3,24 @@ description: Uses specified Node version and installs dependencies (typically us
 
 inputs:
   node-version:
-    description: 'Node version to use'
-    default: 22.x
+    description: "Node version to use"
+    default: 24.x
   install-command:
-    description: 'Command to install dependencies'
-    default: 'npm ci'
+    description: "Command to install dependencies"
+    default: "npm ci --no-audit --no-fund --prefer-offline"
   working-directory:
-    description: 'Working directory'
-    default: '.'
+    description: "Working directory"
+    default: "."
 
 runs:
   using: "composite"
 
   steps:
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.node-version }}
+        cache: "npm"
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
 
     - run: |
         echo "::group::$INSTALL_COMMAND"

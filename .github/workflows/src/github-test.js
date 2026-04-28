@@ -1,12 +1,10 @@
-// @ts-check
-
 import { readdir } from "fs/promises";
 import { basename, join, normalize, sep } from "path";
 import { pathToFileURL } from "url";
 import { inspect } from "util";
 
 /**
- * @param {import('github-script').AsyncFunctionArguments} AsyncFunctionArguments
+ * @param {import('@actions/github-script').AsyncFunctionArguments} AsyncFunctionArguments
  */
 export default async function importAllModules({ core }) {
   const workspace = process.env.GITHUB_WORKSPACE;
@@ -18,10 +16,7 @@ export default async function importAllModules({ core }) {
 
   // find all files matching "**/src/**/*.js", sorted for readability
   const scriptFiles = (await readdir(githubDir, { recursive: true }))
-    .filter(
-      (f) =>
-        normalize(f).split(sep).includes("src") && basename(f).endsWith(".js"),
-    )
+    .filter((f) => normalize(f).split(sep).includes("src") && basename(f).endsWith(".js"))
     .sort();
 
   core.info("Script Files:");
@@ -35,7 +30,7 @@ export default async function importAllModules({ core }) {
     const fileUrl = pathToFileURL(fullPath).href;
 
     // if import fails, throws error which causes step to fail
-    const module = await import(fileUrl);
+    const module = /** @type {unknown} */ (await import(fileUrl));
 
     core.info(inspect(module));
     core.info("");

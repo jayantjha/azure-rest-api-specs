@@ -1,8 +1,8 @@
 parameters:
-  - name: SdkRepoCommit
+  - name: SdkRepoBranch
     type: string
     default: 'main'
-    displayName: 'SDK repository commit'
+    displayName: 'SDK repository branch'
   - name: ConfigType
     type: string
     values:
@@ -16,7 +16,7 @@ parameters:
     displayName: 'Path to API specification file (TypeSpec/OpenAPI)'
   - name: ApiVersion
     type: string
-    default: ''
+    default: 'none'
     displayName: 'API version'
   - name: SdkReleaseType
     type: string
@@ -24,26 +24,32 @@ parameters:
       - 'beta'
       - 'stable'
     default: 'beta'
-    displayName: 'SDK release type'
-  - name: SkipPullRequestCreation
+    displayName: 'SDK release type (ignored when API version is "none")'
+  - name: CreatePullRequest
     type: boolean
     default: false
-    displayName: 'Skip SDK pull request creation'
-    
+    displayName: 'Create SDK pull request'
+  - name: ForceCreateEvenWithFailures
+    type: boolean
+    default: false
+    displayName: 'Force create SDK pull request even with failures ("Create SDK Pull Request" must be checked)'
+  - name: ReleasePlanWorkItemId
+    type: number
+    default: 0
+    displayName: 'Release plan work item id'
+
 trigger: none
-pr:
-  paths: 
-    include:
-      - specification/**
 
 extends:
   template: /eng/pipelines/templates/stages/archetype-spec-gen-sdk.yml
   parameters:
     SpecRepoUrl: 'https://github.com/$(Build.Repository.Name)'
     SdkRepoUrl: $(SdkRepoUrl)
-    SdkRepoCommit: ${{ parameters.SdkRepoCommit }}
+    SdkRepoBranch: ${{ parameters.SdkRepoBranch }}
     ConfigType: ${{ parameters.ConfigType }}
     ConfigPath: ${{ parameters.ConfigPath }}
     ApiVersion: ${{ parameters.ApiVersion }}
     SdkReleaseType: ${{ parameters.SdkReleaseType }}
-    SkipPullRequestCreation: ${{ parameters.SkipPullRequestCreation }}
+    CreatePullRequest: ${{ parameters.CreatePullRequest }}
+    ForceCreateEvenWithFailures: ${{ parameters.ForceCreateEvenWithFailures }}
+    ReleasePlanWorkItemId: ${{ parameters.ReleasePlanWorkItemId }}

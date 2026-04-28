@@ -1,10 +1,11 @@
 import "@typespec/http";
 import "@typespec/rest";
 import "@azure-tools/typespec-azure-resource-manager";
+import "@typespec/http";
 
+using TypeSpec.Versioning;
 using TypeSpec.Http;
 using TypeSpec.Rest;
-using OpenAPI;
 using Azure.ResourceManager;
 
 namespace Microsoft.IoTOperations;
@@ -29,21 +30,34 @@ model DataflowResource is ProxyResource<DataflowProperties> {
   #suppress "@azure-tools/typespec-azure-resource-manager/arm-resource-invalid-envelope-property"
   @doc("Edge location of the resource.")
   @visibility(Lifecycle.Read, Lifecycle.Create)
-  extendedLocation: ExtendedLocation;
+  @madeOptional(Versions.`2025-07-01-preview`)
+  extendedLocation?: ExtendedLocation;
 }
 
 @doc("Dataflow Resource properties")
 model DataflowProperties {
   @doc("Mode for Dataflow. Optional; defaults to Enabled.")
-  mode?: OperationalMode = OperationalMode.Enabled;
+  mode?: OperationalMode = Enabled;
+
+  @doc("Disk persistence mode.")
+  @added(Versions.`2025-07-01-preview`)
+  requestDiskPersistence?: OperationalMode;
 
   @doc("List of operations including source and destination references as well as transformation.")
-  @OpenAPI.extension("x-ms-identifiers", #[])
+  @identifiers(#[])
   operations: DataflowOperation[];
 
   @visibility(Lifecycle.Read)
   @doc("The status of the last operation.")
   provisioningState?: ProvisioningState;
+
+  @visibility(Lifecycle.Read)
+  @doc("The status for the dataflow.")
+  @added(Versions.`2026-03-01`)
+  status?: DataflowStatus;
+
+  #suppress "deprecated" "ResourceHealth is deprecated, use 'status.healthState' instead."
+  ...ResourceHealth;
 }
 
 @doc("Dataflow Operation properties. NOTE - One only method is allowed to be used for one entry.")
@@ -70,13 +84,13 @@ union OperationType {
   string,
 
   @doc("Dataflow Source Operation")
-  Source: "Source",
+  Source: Source,
 
   @doc("Dataflow Destination Operation")
-  Destination: "Destination",
+  Destination: Destination,
 
   @doc("Dataflow BuiltIn Transformation Operation")
-  BuiltInTransformation: "BuiltInTransformation",
+  BuiltInTransformation: BuiltInTransformation,
 }
 
 @doc("Dataflow BuiltIn Transformation properties")
@@ -89,20 +103,21 @@ model DataflowBuiltInTransformationSettings {
 
   @doc("Enrich data from Broker State Store. Dataset references a key in Broker State Store.")
   @maxItems(1)
-  @OpenAPI.extension("x-ms-identifiers", #[])
+  @identifiers(#[])
   datasets?: DataflowBuiltInTransformationDataset[] = #[];
 
   @doc("Filters input record or datapoints based on condition.")
-  @OpenAPI.extension("x-ms-identifiers", #[])
+  @identifiers(#[])
   filter?: DataflowBuiltInTransformationFilter[] = #[];
 
   @doc("Maps input to output message.")
-  @OpenAPI.extension("x-ms-identifiers", #[])
+  @identifiers(#[])
   map?: DataflowBuiltInTransformationMap[] = #[];
 }
 
 @doc("Dataflow BuiltIn Transformation dataset properties")
 model DataflowBuiltInTransformationDataset {
+  #suppress "@azure-tools/typespec-azure-resource-manager/secret-prop" "TODO: Check if this is a secret and add @secret or update reason"
   @doc("The key of the dataset.")
   @maxLength(64)
   key: string;
@@ -213,6 +228,76 @@ model DataflowDestinationOperationSettings {
 
   @doc("Destination location, can be a topic or table name. Supports dynamic values with $topic, $systemProperties, $userProperties, $payload, $context, and $subscription.")
   dataDestination: NonEmptyString;
+
+  @doc("Headers for the output data.")
+  @identifiers(#["actionType"])
+  @added(Versions.`2025-10-01`)
+  headers?: DataflowDestinationHeaderAction[];
+}
+
+@added(Versions.`2025-10-01`)
+@doc("Dataflow Destination Header Action properties")
+@discriminator("actionType")
+model DataflowDestinationHeaderAction {
+  @doc("The type of header operation to perform.")
+  actionType: DataflowHeaderActionType;
+}
+
+@added(Versions.`2025-10-01`)
+@doc("Dataflow Destination Header Action Types")
+union DataflowHeaderActionType {
+  string,
+
+  @doc("Add if not present type")
+  AddIfNotPresent,
+
+  @doc("Remove type")
+  Remove,
+
+  @doc("Add or Replace type")
+  AddOrReplace,
+}
+
+@added(Versions.`2025-10-01`)
+@doc("Dataflow Destination Add if not present HeaderAction properties")
+model DataflowDestinationAddIfNotPresentHeaderAction
+  extends DataflowDestinationHeaderAction {
+  @doc("The type of header operation to perform.")
+  actionType: AddIfNotPresent;
+
+  #suppress "@azure-tools/typespec-azure-resource-manager/secret-prop" "TODO: Check if this is a secret and add @secret or update reason"
+  @doc("The name of the header to add.")
+  key: string;
+
+  @doc("The value of the header to add.")
+  value: string;
+}
+
+@added(Versions.`2025-10-01`)
+@doc("Dataflow Destination Remove HeaderAction properties")
+model DataflowDestinationRemoveHeaderAction
+  extends DataflowDestinationHeaderAction {
+  @doc("The type of header operation to perform.")
+  actionType: Remove;
+
+  #suppress "@azure-tools/typespec-azure-resource-manager/secret-prop" "TODO: Check if this is a secret and add @secret or update reason"
+  @doc("The name of the header to remove.")
+  key: string;
+}
+
+@added(Versions.`2025-10-01`)
+@doc("Dataflow Destination Add or Replace HeaderAction properties")
+model DataflowDestinationAddOrReplaceHeaderAction
+  extends DataflowDestinationHeaderAction {
+  @doc("The type of header operation to perform.")
+  actionType: AddOrReplace;
+
+  #suppress "@azure-tools/typespec-azure-resource-manager/secret-prop" "TODO: Check if this is a secret and add @secret or update reason"
+  @doc("The name of the header to add or replace.")
+  key: string;
+
+  @doc("The value of the header to add or replace.")
+  value: string;
 }
 
 @doc("Dataflow Source Operation properties")
@@ -231,4 +316,12 @@ model DataflowSourceOperationSettings {
 
   @doc("List of source locations. Can be Broker or Kafka topics. Supports wildcards # and +.")
   dataSources: NonEmptyString[];
+}
+
+/** DataflowStatus status. */
+@added(Versions.`2026-03-01`)
+model DataflowStatus {
+  /** The health state of the Dataflow. */
+  @visibility(Lifecycle.Read)
+  healthState?: ResourceHealthStatus;
 }

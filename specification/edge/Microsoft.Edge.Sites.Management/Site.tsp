@@ -1,52 +1,69 @@
 import "@azure-tools/typespec-azure-core";
 import "@azure-tools/typespec-azure-resource-manager";
-import "@typespec/openapi";
-import "@typespec/rest";
-import "./models.tsp";
+import "@typespec/versioning";
 
-using TypeSpec.Rest;
 using Azure.ResourceManager;
-using TypeSpec.Http;
-using TypeSpec.OpenAPI;
+using TypeSpec.Versioning;
 
 namespace Microsoft.Edge;
 
-@doc("Site as ARM Resource")
-model Site is ProxyResource<SiteProperties> {
-  @doc("Name of Site resource")
-  @pattern("^[a-zA-Z0-9][a-zA-Z0-9-_]{2,22}[a-zA-Z0-9]$")
-  @path
-  @key("siteName")
-  @segment("sites")
-  @visibility(Lifecycle.Read)
-  name: string;
+@doc("Site as Extension Resource")
+model Site is ExtensionResource<SiteProperties> {
+  ...ResourceNameParameter<
+    Resource = Site,
+    KeyName = "siteName",
+    SegmentName = "sites",
+    NamePattern = "^[a-zA-Z0-9][a-zA-Z0-9-_]{2,22}[a-zA-Z0-9]$"
+  >;
+}
+
+@doc("Site operations as base operations which will be extended for each scopes")
+interface SiteOps<
+  Scope extends Azure.ResourceManager.Foundations.SimpleResource,
+  ResourceName extends valueof string = ""
+> {
+  list is Extension.ListByTarget<
+    Scope,
+    Site,
+    OverrideResourceName = ResourceName
+  >;
+  get is Extension.Read<Scope, Site, OverrideResourceName = ResourceName>;
+  createOrUpdate is Extension.CreateOrUpdateAsync<
+    Scope,
+    Site,
+    OverrideResourceName = ResourceName
+  >;
+  update is Extension.CustomPatchSync<
+    Scope,
+    Site,
+    SiteUpdate,
+    OverrideResourceName = ResourceName
+  >;
+  delete is Extension.DeleteSync<
+    Scope,
+    Site,
+    OverrideResourceName = ResourceName
+  >;
 }
 
 @armResourceOperations
-interface Sites {
-  get is ArmResourceRead<Site>;
-  createOrUpdate is ArmResourceCreateOrReplaceAsync<Site>;
-  update is ArmCustomPatchSync<Site, SiteUpdate>;
-  delete is ArmResourceDeleteSync<Site>;
-  listByResourceGroup is ArmResourceListByParent<Site>;
-}
+interface Sites extends SiteOps<Extension.ResourceGroup> {}
 
-alias SubscriptionParameters = Azure.ResourceManager.Foundations.SubscriptionBaseParameters;
-#suppress "@azure-tools/typespec-azure-resource-manager/arm-resource-interface-requires-decorator" "Custom operation on the scope of subscription"
-interface SitesBySubscription {
-  list is ArmListBySubscription<Site>;
-  get is ArmResourceRead<Site, BaseParameters = SubscriptionParameters>;
-  createOrUpdate is ArmResourceCreateOrReplaceAsync<
-    Site,
-    BaseParameters = SubscriptionParameters
-  >;
-  update is ArmCustomPatchSync<
-    Site,
-    SiteUpdate,
-    BaseParameters = SubscriptionParameters
-  >;
-  delete is ArmResourceDeleteSync<
-    Site,
-    BaseParameters = SubscriptionParameters
-  >;
-}
+@armResourceOperations(#{ omitTags: true })
+interface SitesBySubscription
+  extends SiteOps<Extension.Subscription, "SubscriptionEdgeSite"> {}
+
+alias ServiceGroup = Extension.ExternalResource<
+  TargetNamespace = "Microsoft.Management",
+  ResourceType = "serviceGroups",
+  ResourceParameterName = "servicegroupName",
+  NamePattern = "^[a-zA-Z0-9\\-_().]{1,90}$",
+  Description = "The name of the service group",
+  ParentType = "Tenant"
+>;
+
+@armResourceOperations(#{ omitTags: true })
+@added(Versions.v2025_03_01_preview)
+@added(Versions.v2025_06_01)
+interface SitesByServiceGroup
+  extends SiteOps<ServiceGroup, "ServiceGroupEdgeSite"> {}
